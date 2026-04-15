@@ -109,7 +109,12 @@ jobs:
             docker compose pull
             docker compose up -d --remove-orphans
             sleep 5
+            # Force Prometheus to reload its config (picks up node-exporter job)
+            docker compose restart prometheus
+            sleep 5
             docker compose ps
+            echo '--- Node Exporter logs ---'
+            docker compose logs --tail=20 node-exporter || echo 'node-exporter not running'
           EOF
 
       - name: Verify deployment
