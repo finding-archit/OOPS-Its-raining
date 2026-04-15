@@ -106,8 +106,9 @@ jobs:
             export ECR_IMAGE=$ECR_IMAGE
             export OPENWEATHER_API_KEY=$OPENWEATHER_API_KEY
 
-            docker compose pull app
-            docker compose up -d
+            docker compose pull
+            docker compose up -d --remove-orphans
+            sleep 5
             docker compose ps
           EOF
 
