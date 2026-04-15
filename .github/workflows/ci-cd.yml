@@ -86,8 +86,8 @@ jobs:
             docker-compose.prod.yml \
             ubuntu@$EC2_HOST:~/app/docker-compose.yml
           scp -o StrictHostKeyChecking=no -i key.pem \
-            monitoring/prometheus.yml \
-            ubuntu@$EC2_HOST:~/app/monitoring/prometheus.yml
+            -r monitoring/ \
+            ubuntu@$EC2_HOST:~/app/
 
       - name: Deploy via SSH
         env:

@@ -1,0 +1,52 @@
+{
+  "title": "Weather App Metrics",
+  "uid": "weather-app",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "HTTP Requests Over Time",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total[5m])) by (endpoint)",
+          "legendFormat": "{{endpoint}}"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Total Weather API Calls",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(weather_fetches_total)",
+          "legendFormat": "Total Searches"
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "title": "Median Request Latency (ms)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) * 1000",
+          "legendFormat": "Latency (ms)"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "App Version & Environment",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "app_info",
+          "legendFormat": "{{environment}} - v{{version}}"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 38
+}
