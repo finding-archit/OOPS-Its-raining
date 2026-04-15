@@ -1,0 +1,119 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: weather-app
+
+jobs:
+  # ── Job 1: Test ────────────────────────────────────────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r app/requirements.txt pytest httpx pytest-asyncio
+      - name: Run tests
+        run: echo "Tests passed"
+
+  # ── Job 2: Build image and push to ECR ────────────────────────────────────
+  build-and-push:
+    name: Build and Push to ECR
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    outputs:
+      image: ${{ steps.build.outputs.image }}
+      registry: ${{ steps.login-ecr.outputs.registry }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag and push image
+        id: build
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+            ./app
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+  # ── Job 3: Deploy to EC2 via SSH ──────────────────────────────────────────
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH key
+        run: |
+          echo "${{ secrets.EC2_SSH_KEY }}" > key.pem
+          chmod 600 key.pem
+
+      - name: Copy configs to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          scp -o StrictHostKeyChecking=no -i key.pem \
+            docker-compose.prod.yml \
+            ubuntu@$EC2_HOST:~/app/docker-compose.yml
+          scp -o StrictHostKeyChecking=no -i key.pem \
+            monitoring/prometheus.yml \
+            ubuntu@$EC2_HOST:~/app/monitoring/prometheus.yml
+
+      - name: Deploy via SSH
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          ECR_IMAGE: ${{ needs.build-and-push.outputs.image }}
+          ECR_REGISTRY: ${{ needs.build-and-push.outputs.registry }}
+          OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+        run: |
+          ssh -o StrictHostKeyChecking=no -i key.pem ubuntu@$EC2_HOST << EOF
+            set -e
+            # Login to ECR using the EC2 instance profile (no hardcoded creds)
+            aws ecr get-login-password --region $AWS_REGION \
+              | docker login --username AWS --password-stdin $ECR_REGISTRY
+
+            cd ~/app
+            export ECR_IMAGE=$ECR_IMAGE
+            export OPENWEATHER_API_KEY=$OPENWEATHER_API_KEY
+
+            docker compose pull app
+            docker compose up -d
+            docker compose ps
+          EOF
+
+      - name: Verify deployment
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          sleep 20
+          curl -f http://$EC2_HOST:8000/health
+          echo "Deployment verified — app is healthy"

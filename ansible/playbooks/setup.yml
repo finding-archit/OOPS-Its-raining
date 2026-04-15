@@ -1,0 +1,89 @@
+---
+- name: Verify and harden EC2 app server
+  hosts: app_server
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: Ensure Docker is running
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Ensure ubuntu user is in docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+
+    - name: Ensure app directory structure exists
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0755"
+      loop:
+        - /home/ubuntu/app
+        - /home/ubuntu/app/monitoring
+        - /home/ubuntu/app/monitoring/grafana/provisioning
+
+    - name: Ensure AWS CLI is installed
+      apt:
+        name: awscli
+        state: present
+        update_cache: yes
+
+    - name: Disable root SSH login
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^#?PermitRootLogin"
+        line: "PermitRootLogin no"
+        state: present
+      notify: Restart SSH
+
+    - name: Enable UFW firewall
+      ufw:
+        state: enabled
+        policy: deny
+
+    - name: Allow SSH
+      ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+
+    - name: Allow app port
+      ufw:
+        rule: allow
+        port: "8000"
+        proto: tcp
+
+    - name: Allow Prometheus
+      ufw:
+        rule: allow
+        port: "9090"
+        proto: tcp
+
+    - name: Allow Grafana
+      ufw:
+        rule: allow
+        port: "3000"
+        proto: tcp
+
+    - name: Verify Docker is accessible by ubuntu user
+      become_user: ubuntu
+      command: docker info
+      register: docker_info
+      changed_when: false
+
+    - name: Show Docker version
+      debug:
+        msg: "Docker is running: {{ docker_info.stdout_lines[0] }}"
+
+  handlers:
+    - name: Restart SSH
+      service:
+        name: sshd
+        state: restarted

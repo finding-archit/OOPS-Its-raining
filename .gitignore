@@ -1,0 +1,16 @@
+.env
+*.pem
+*.key
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.retry
