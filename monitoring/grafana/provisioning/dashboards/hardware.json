@@ -3,17 +3,18 @@
   "uid": "hardware-metrics",
   "panels": [
     {
-      "type": "gauge",
+      "type": "timeseries",
       "title": "CPU Usage (%)",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "targets": [
         {
-          "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
-          "legendFormat": "CPU Usage"
+          "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[2m])) * 100)",
+          "legendFormat": "CPU %"
         }
       ],
       "fieldConfig": {
         "defaults": {
+          "unit": "percent",
           "min": 0,
           "max": 100,
           "thresholds": {
@@ -28,17 +29,18 @@
       }
     },
     {
-      "type": "gauge",
+      "type": "timeseries",
       "title": "Memory Usage (%)",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "targets": [
         {
-          "expr": "(node_memory_MemTotal_bytes - node_memory_MemFree_bytes - node_memory_Buffers_bytes - node_memory_Cached_bytes) / node_memory_MemTotal_bytes * 100",
-          "legendFormat": "RAM Usage"
+          "expr": "100 * (1 - ((node_memory_MemFree_bytes + node_memory_Buffers_bytes + node_memory_Cached_bytes) / node_memory_MemTotal_bytes))",
+          "legendFormat": "RAM Used %"
         }
       ],
       "fieldConfig": {
         "defaults": {
+          "unit": "percent",
           "min": 0,
           "max": 100,
           "thresholds": {
@@ -58,14 +60,17 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
       "targets": [
         {
-          "expr": "rate(node_network_receive_bytes_total[5m])",
-          "legendFormat": "Inbound (rx)"
+          "expr": "rate(node_network_receive_bytes_total{device!~\"lo|veth.*|br.*|docker.*\"}[2m])",
+          "legendFormat": "Inbound (rx) - {{device}}"
         },
         {
-          "expr": "rate(node_network_transmit_bytes_total[5m])",
-          "legendFormat": "Outbound (tx)"
+          "expr": "rate(node_network_transmit_bytes_total{device!~\"lo|veth.*|br.*|docker.*\"}[2m])",
+          "legendFormat": "Outbound (tx) - {{device}}"
         }
-      ]
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "Bps" }
+      }
     },
     {
       "type": "stat",
@@ -73,12 +78,16 @@
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
       "targets": [
         {
-          "expr": "node_filesystem_free_bytes{mountpoint=\"/rootfs\"} / 1024 / 1024 / 1024",
-          "legendFormat": "Free Space (GB)"
+          "expr": "node_filesystem_free_bytes{fstype!~\"tmpfs|overlay\",mountpoint=\"/\"} / 1024 / 1024 / 1024",
+          "legendFormat": "Free (GB)"
         }
-      ]
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      }
     }
   ],
   "refresh": "10s",
-  "schemaVersion": 38
+  "schemaVersion": 38,
+  "time": { "from": "now-30m", "to": "now" }
 }
