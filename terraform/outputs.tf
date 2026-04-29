@@ -23,6 +23,11 @@ output "grafana_url" {
   value       = "http://${aws_instance.app.public_ip}:3000"
 }
 
+output "alertmanager_url" {
+  description = "Alertmanager URL"
+  value       = "http://${aws_instance.app.public_ip}:9093"
+}
+
 output "ecr_repository_url" {
   description = "ECR repository URL — used by GitHub Actions to push images"
   value       = aws_ecr_repository.app.repository_url
