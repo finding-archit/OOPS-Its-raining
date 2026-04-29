@@ -97,7 +97,11 @@ jobs:
       - name: Copy configs to EC2
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
         run: |
+          # Inject SMTP password securely without committing it to git
+          sed -i "s/\${SMTP_PASSWORD}/$SMTP_PASSWORD/g" monitoring/alertmanager.yml
+
           scp -o StrictHostKeyChecking=no -i key.pem \
             docker-compose.prod.yml \
             ubuntu@$EC2_HOST:~/app/docker-compose.yml

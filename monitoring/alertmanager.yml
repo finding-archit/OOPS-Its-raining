@@ -2,10 +2,10 @@ global:
   resolve_timeout: 5m
   # To enable email alerts, update these fields with your details
   smtp_smarthost: 'smtp.gmail.com:587'
-  smtp_from: 'your_email@gmail.com'
-  smtp_auth_username: 'your_email@gmail.com'
+  smtp_from: 'archit.gupta865@gmail.com'
+  smtp_auth_username: 'archit.gupta865@gmail.com'
   # Generate an App Password in your Google Account settings
-  smtp_auth_password: 'your_gmail_app_password'
+  smtp_auth_password: '${SMTP_PASSWORD}'
   smtp_require_tls: true
 
 route:
@@ -18,5 +18,5 @@ route:
 receivers:
 - name: 'email-notifications'
   email_configs:
-  - to: 'your_email@gmail.com'
+  - to: 'archit.gupta865@gmail.com'
     send_resolved: true
