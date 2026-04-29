@@ -1,22 +1,16 @@
 global:
   resolve_timeout: 5m
-  # To enable email alerts, update these fields with your details
-  smtp_smarthost: 'smtp.gmail.com:587'
-  smtp_from: 'archit.gupta865@gmail.com'
-  smtp_auth_username: 'archit.gupta865@gmail.com'
-  # Generate an App Password in your Google Account settings
-  smtp_auth_password: '${SMTP_PASSWORD}'
-  smtp_require_tls: true
 
 route:
   group_by: ['alertname']
   group_wait: 10s
   group_interval: 10m
   repeat_interval: 1h
-  receiver: 'email-notifications'
+  receiver: 'app-webhook'
 
 receivers:
-- name: 'email-notifications'
-  email_configs:
-  - to: 'archit.gupta865@gmail.com'
+- name: 'app-webhook'
+  webhook_configs:
+  # Sends alerts to the FastAPI app running on port 8000
+  - url: 'http://app:8000/webhook/alerts'
     send_resolved: true

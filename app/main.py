@@ -55,7 +55,7 @@ API_KEY = os.getenv("OPENWEATHER_API_KEY", "")
 BASE_URL = "https://api.openweathermap.org/data/2.5/weather"
 APP_START_TIME = time.time()
 weather_history: list[dict] = []
-
+alert_history: list[dict] = []
 
 def get_recommendation(description: str, temp: float) -> str:
     desc = description.lower()
@@ -150,6 +150,34 @@ async def get_weather(city: str):
 def get_history():
     REQUEST_COUNT.labels(method="GET", endpoint="/history", status_code=200).inc()
     return {"count": len(weather_history), "records": weather_history[-20:]}
+
+
+@app.post("/webhook/alerts")
+async def receive_alerts(payload: dict):
+    """Webhook receiver for Prometheus Alertmanager"""
+    alerts = payload.get("alerts", [])
+    for alert in alerts:
+        record = {
+            "status": alert.get("status"),
+            "alertname": alert.get("labels", {}).get("alertname", "Unknown"),
+            "severity": alert.get("labels", {}).get("severity", "unknown"),
+            "summary": alert.get("annotations", {}).get("summary", ""),
+            "description": alert.get("annotations", {}).get("description", ""),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        alert_history.append(record)
+        logger.warning(f"ALERT RECEIVED: {record['alertname']} - {record['summary']}")
+        
+    # Keep only the last 50 alerts
+    if len(alert_history) > 50:
+        alert_history.pop(0)
+        
+    return {"status": "success", "received": len(alerts)}
+
+@app.get("/alerts")
+def get_alerts():
+    """Endpoint to view received alerts"""
+    return {"count": len(alert_history), "alerts": alert_history[::-1]}
 
 
 @app.get("/", response_class=HTMLResponse)
